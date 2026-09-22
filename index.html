@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
-  <title>Attendance Scanner V2.3</title>
+  <title>Attendance Scanner V2.4</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; background: #0d0f12; color: #f6f7f8; font-family: Arial, Helvetica, sans-serif; }
@@ -170,6 +170,7 @@
   const SAME_CODE_REARM_MS = 420;
   const RECENT_CODE_COOLDOWN_MS = 4500;
   const ROI_SIZE = 720;
+  const STATUS_POLL_MS = 30000;
 
   const els = {
     status: document.getElementById('status'),
@@ -211,6 +212,7 @@
   let lastCapturedSeenAt = 0;
   let capturePulseTimer = 0;
   let nextHistoryId = 1;
+  let statusCheckInFlight = false;
 
   const recentCodes = new Map();
   const sessionHistory = [];
@@ -305,30 +307,48 @@
 
   async function refreshStatus(options = {}) {
     const silent = !!options.silent;
-    if (!configured()) return;
+    if (!configured() || statusCheckInFlight) return;
+
+    statusCheckInFlight = true;
     if (!silent) setStatus('checking', 'Checking scanner status…');
+
     try {
       const r = await backendCall({ action: 'status' });
+
       if (r.status === 'unauthorized') {
         scanningEnabled = false;
         setStatus('closed', 'PAIRING KEY REJECTED');
-        els.cameraMessage.textContent = 'PAIRING KEY REJECTED';
+        els.startButton.disabled = true;
         if (cameraRunning) await stopCamera();
+        els.cameraMessage.textContent = 'PAIRING KEY REJECTED';
         return;
       }
+
       scanningEnabled = !!r.enabled;
       els.dateText.textContent = r.date ? 'Date: ' + r.date : 'Connected';
-      if (Number.isFinite(Number(r.todayCount))) els.todayCount.textContent = String(Number(r.todayCount));
+      if (Number.isFinite(Number(r.todayCount))) {
+        els.todayCount.textContent = String(Number(r.todayCount));
+      }
+
       if (scanningEnabled) {
         setStatus('open', 'SCANNING OPEN');
         els.startButton.disabled = cameraRunning;
+        if (!cameraRunning) els.cameraMessage.textContent = '';
       } else {
         setStatus('closed', 'SCANNING CLOSED');
         els.startButton.disabled = true;
         if (cameraRunning) await stopCamera();
+        els.cameraMessage.textContent = 'SCANNING CLOSED';
       }
     } catch (_) {
+      // Fail closed: if the page cannot verify permission, stop the live scanner.
+      scanningEnabled = false;
       setStatus('closed', 'BACKEND UNAVAILABLE');
+      els.startButton.disabled = true;
+      if (cameraRunning) await stopCamera();
+      els.cameraMessage.textContent = 'BACKEND UNAVAILABLE';
+    } finally {
+      statusCheckInFlight = false;
     }
   }
 
@@ -727,7 +747,7 @@
 
   if (showConfigurationState()) {
     refreshStatus();
-    setInterval(() => refreshStatus({ silent: true }), 30000);
+    setInterval(() => refreshStatus({ silent: true }), STATUS_POLL_MS);
   }
 })();
 </script>
