@@ -9,11 +9,11 @@
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; background: #0d0f12; color: #f6f7f8; font-family: Arial, Helvetica, sans-serif; }
-    body { padding: 14px; }
+    body { padding: 10px; }
     button { font: inherit; }
 
-    .app { width: 100%; max-width: 680px; margin: 0 auto; }
-    .topbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .app { width: 100%; max-width: 760px; margin: 0 auto; }
+    .topbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 9px; }
     .title { min-width: 0; }
     h1 { margin: 0; font-size: 25px; line-height: 1.15; }
     .date { margin-top: 4px; color: #9ca4ad; font-size: 13px; }
@@ -22,7 +22,7 @@
     .today-label { display: block; color: #aeb5bd; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
     .today-count { display: block; margin-top: 2px; font-size: 25px; font-weight: 900; }
 
-    .status { padding: 10px 12px; margin-bottom: 10px; border-radius: 11px; text-align: center; font-weight: 800; font-size: 14px; }
+    .status { padding: 10px 12px; margin-bottom: 9px; border-radius: 11px; text-align: center; font-weight: 800; font-size: 14px; }
     .status.checking { background: #272b31; color: #d1d5da; }
     .status.open { background: #143923; color: #bff2cf; border: 1px solid #245c39; }
     .status.closed { background: #461d20; color: #ffd0d4; border: 1px solid #713038; }
@@ -32,8 +32,8 @@
     .camera-shell {
       position: relative;
       width: 100%;
-      height: min(68vh, 650px);
-      min-height: 390px;
+      height: min(78vh, 780px);
+      min-height: 460px;
       overflow: hidden;
       border-radius: 18px;
       background: #000;
@@ -64,26 +64,49 @@
     .guide {
       position: absolute;
       left: 50%;
-      top: 50%;
-      width: min(66%, 360px);
+      top: 48%;
+      width: min(76%, 440px);
       aspect-ratio: 1 / 1;
       transform: translate(-50%, -50%);
-      border: 3px solid rgba(255,255,255,.88);
-      border-radius: 22px;
-      box-shadow: 0 0 0 999px rgba(0,0,0,.18);
+      border: 3px solid rgba(255,255,255,.90);
+      border-radius: 24px;
+      box-shadow: 0 0 0 999px rgba(0,0,0,.16);
       pointer-events: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
     }
+
+    .guide.holding { border-color: #ffd66b; box-shadow: 0 0 0 999px rgba(0,0,0,.14), 0 0 26px rgba(255,214,107,.26); }
+    .guide.locked { border-color: #8ee1a8; box-shadow: 0 0 0 999px rgba(0,0,0,.18), 0 0 30px rgba(142,225,168,.28); }
+    .guide.remove { border-color: #ffb86b; box-shadow: 0 0 0 999px rgba(0,0,0,.18), 0 0 30px rgba(255,184,107,.25); }
 
     .guide::before,
     .guide::after {
       content: '';
       position: absolute;
-      width: 48px;
-      height: 48px;
+      width: 52px;
+      height: 52px;
       border-color: #fff;
     }
     .guide::before { left: -4px; top: -4px; border-left: 7px solid; border-top: 7px solid; border-radius: 18px 0 0 0; }
     .guide::after { right: -4px; bottom: -4px; border-right: 7px solid; border-bottom: 7px solid; border-radius: 0 0 18px 0; }
+
+    .hold-panel {
+      position: absolute;
+      left: 50%;
+      bottom: 60px;
+      transform: translateX(-50%);
+      width: min(88%, 480px);
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(6px);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .hold-label { font-size: 14px; font-weight: 900; letter-spacing: .03em; }
+    .hold-bar { height: 8px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.18); }
+    .hold-fill { width: 0%; height: 100%; border-radius: inherit; background: #fff; transition: width .08s linear; }
 
     .camera-state {
       position: absolute;
@@ -95,20 +118,20 @@
       gap: 8px;
       pointer-events: none;
     }
-    .pill { padding: 7px 10px; border-radius: 999px; background: rgba(0,0,0,.66); color: #fff; font-size: 12px; font-weight: 800; backdrop-filter: blur(6px); }
+    .pill { padding: 7px 10px; border-radius: 999px; background: rgba(0,0,0,.68); color: #fff; font-size: 12px; font-weight: 800; backdrop-filter: blur(6px); }
 
     .flash {
       position: absolute;
       left: 50%;
-      top: 50%;
+      top: 48%;
       transform: translate(-50%, -50%) scale(.96);
       width: calc(100% - 44px);
-      max-width: 500px;
-      padding: 22px 16px;
+      max-width: 540px;
+      padding: 24px 16px;
       border-radius: 18px;
       text-align: center;
       font-weight: 900;
-      font-size: clamp(22px, 6vw, 35px);
+      font-size: clamp(22px, 6vw, 36px);
       line-height: 1.2;
       opacity: 0;
       pointer-events: none;
@@ -157,10 +180,11 @@
     .privacy { margin: 14px 2px 6px; color: #7f8790; font-size: 11px; line-height: 1.45; text-align: center; }
 
     @media (max-width: 420px) {
-      body { padding: 9px; }
+      body { padding: 7px; }
       h1 { font-size: 22px; }
       .today-box { min-width: 78px; }
-      .camera-shell { height: min(66vh, 590px); min-height: 360px; border-radius: 14px; }
+      .camera-shell { height: 76vh; min-height: 430px; border-radius: 14px; }
+      .guide { width: 82%; }
       .controls { grid-template-columns: 1fr 1fr; }
       .mini-controls { grid-template-columns: 1fr 1fr; }
       .mini-controls .mini:last-child { grid-column: 1 / -1; }
@@ -185,12 +209,18 @@
 
   <div class="camera-shell">
     <video id="video" playsinline autoplay muted></video>
-    <div id="placeholder" class="camera-placeholder">Tap <b>Start Camera</b> once. Keep the camera open and move each QR card into the square.</div>
-    <div class="guide" aria-hidden="true"></div>
+    <div id="placeholder" class="camera-placeholder">Tap <b>Start Camera</b> once. Put one QR inside the large square and hold it steady until it is accepted.</div>
+    <div id="guide" class="guide" aria-hidden="true"></div>
     <div id="flash" class="flash"></div>
+
+    <div id="holdPanel" class="hold-panel">
+      <div id="holdLabel" class="hold-label">READY — SHOW ONE QR</div>
+      <div class="hold-bar"><div id="holdFill" class="hold-fill"></div></div>
+    </div>
+
     <div class="camera-state">
       <div id="cameraState" class="pill">CAMERA OFF</div>
-      <div id="queueState" class="pill">QUEUE 0</div>
+      <div id="scanState" class="pill">ONE AT A TIME</div>
     </div>
   </div>
 
@@ -220,7 +250,7 @@
     </div>
   </section>
 
-  <div class="privacy">Names shown below exist only in this page's current session and in your Google Sheet. Refreshing the page clears the on-screen session history.</div>
+  <div class="privacy">One QR must stay visible for about one second before it is submitted. After each scan, remove that QR before presenting the next one. Names shown here are only kept for this page session and in your Google Sheet.</div>
 </div>
 
 <script>
@@ -230,6 +260,12 @@
   const STORAGE_BACKEND = 'qrAttendanceV2Backend';
   const STORAGE_KEY = 'qrAttendanceV2Key';
 
+  // Deliberate-scanning timing.
+  const HOLD_MS = 1000;              // Same QR must be held for about 1 second.
+  const CANDIDATE_GRACE_MS = 280;    // Small decode gaps while holding are tolerated.
+  const REMOVE_CLEAR_MS = 700;       // QR must disappear this long before scanner rearms.
+  const DETECT_INTERVAL_MS = 110;    // Roughly 9 decode attempts/second.
+
   const els = {
     status: document.getElementById('status'),
     configError: document.getElementById('configError'),
@@ -237,9 +273,13 @@
     todayCount: document.getElementById('todayCount'),
     video: document.getElementById('video'),
     placeholder: document.getElementById('placeholder'),
+    guide: document.getElementById('guide'),
     flash: document.getElementById('flash'),
+    holdPanel: document.getElementById('holdPanel'),
+    holdLabel: document.getElementById('holdLabel'),
+    holdFill: document.getElementById('holdFill'),
     cameraState: document.getElementById('cameraState'),
-    queueState: document.getElementById('queueState'),
+    scanState: document.getElementById('scanState'),
     startButton: document.getElementById('startButton'),
     stopButton: document.getElementById('stopButton'),
     refreshButton: document.getElementById('refreshButton'),
@@ -258,13 +298,19 @@
   let cameraRunning = false;
   let detectLoopId = 0;
   let lastDetectTick = 0;
-  let processingQueue = false;
   let acceptedCount = 0;
   let audioContext = null;
   let flashTimer = 0;
 
-  const scanQueue = [];
-  const recentCodes = new Map();
+  // State machine: ready -> holding -> submitting -> remove -> ready.
+  let mode = 'ready';
+  let candidateCode = '';
+  let candidateStartedAt = 0;
+  let candidateLastSeenAt = 0;
+  let lockedCode = '';
+  let lockedLastSeenAt = 0;
+  let submitInFlight = false;
+
   const sessionHistory = [];
 
   function pairFromFragment() {
@@ -280,9 +326,6 @@
         localStorage.setItem(STORAGE_BACKEND, b);
         localStorage.setItem(STORAGE_KEY, k);
       } catch (_) {}
-
-      // Replace the current history entry so the secret fragment disappears
-      // from the visible address bar and normal browser history entry.
       history.replaceState({}, document.title, location.pathname + location.search);
     }
   }
@@ -415,6 +458,48 @@
     els.latest.querySelector('.sub').textContent = sub || '';
   }
 
+  function resetCandidate() {
+    candidateCode = '';
+    candidateStartedAt = 0;
+    candidateLastSeenAt = 0;
+    if (mode === 'holding') setScannerMode('ready');
+  }
+
+  function setScannerMode(nextMode, progress = 0) {
+    mode = nextMode;
+    els.guide.className = 'guide';
+
+    if (nextMode === 'ready') {
+      els.scanState.textContent = 'READY';
+      els.holdLabel.textContent = 'READY — SHOW ONE QR';
+      els.holdFill.style.width = '0%';
+      return;
+    }
+
+    if (nextMode === 'holding') {
+      els.guide.classList.add('holding');
+      els.scanState.textContent = 'HOLD STEADY';
+      els.holdLabel.textContent = 'HOLD STEADY…';
+      els.holdFill.style.width = Math.max(0, Math.min(100, progress)) + '%';
+      return;
+    }
+
+    if (nextMode === 'submitting') {
+      els.guide.classList.add('locked');
+      els.scanState.textContent = 'SUBMITTING';
+      els.holdLabel.textContent = 'QR LOCKED — SUBMITTING…';
+      els.holdFill.style.width = '100%';
+      return;
+    }
+
+    if (nextMode === 'remove') {
+      els.guide.classList.add('remove');
+      els.scanState.textContent = 'REMOVE QR';
+      els.holdLabel.textContent = 'REMOVE THIS QR';
+      els.holdFill.style.width = '100%';
+    }
+  }
+
   async function startCamera() {
     if (cameraRunning || !configured()) return;
 
@@ -435,7 +520,6 @@
     }
 
     try {
-      // Audio must be unlocked by a user gesture before automatic beeps can play.
       if (!audioContext) {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx) audioContext = new AudioCtx();
@@ -464,8 +548,13 @@
       els.cameraState.textContent = 'CAMERA LIVE';
       els.startButton.disabled = true;
       els.stopButton.disabled = false;
-      setLatest('', 'Camera ready', 'Keep scanning. You do not need to press anything between people.');
+      setLatest('', 'Camera ready', 'Hold one QR steady in the square for about one second.');
 
+      lockedCode = '';
+      lockedLastSeenAt = 0;
+      submitInFlight = false;
+      resetCandidate();
+      setScannerMode('ready');
       lastDetectTick = 0;
       detectLoopId = requestAnimationFrame(detectionLoop);
 
@@ -499,142 +588,182 @@
     stream = null;
     detector = null;
     cameraRunning = false;
+    submitInFlight = false;
+    lockedCode = '';
+    resetCandidate();
     els.video.srcObject = null;
     els.placeholder.style.display = 'flex';
     els.cameraState.textContent = 'CAMERA OFF';
     els.startButton.disabled = !scanningEnabled;
     els.stopButton.disabled = true;
+    setScannerMode('ready');
   }
 
   async function detectionLoop(ts) {
     if (!cameraRunning || !detector) return;
 
-    // About 7–8 decode attempts per second. Plenty for QR cards while keeping
-    // CPU/battery reasonable.
-    if (ts - lastDetectTick >= 130 && els.video.readyState >= 2) {
+    if (ts - lastDetectTick >= DETECT_INTERVAL_MS && els.video.readyState >= 2) {
       lastDetectTick = ts;
+      let values = [];
+
       try {
         const found = await detector.detect(els.video);
-        if (found && found.length) {
-          for (const item of found) {
-            const value = String(item.rawValue || '').trim();
-            if (value) enqueueDetectedCode(value);
-          }
-        }
+        values = (found || [])
+          .map(item => String(item.rawValue || '').trim())
+          .filter(Boolean);
       } catch (_) {
-        // Decode failures are normal between QR codes; keep the camera running.
+        values = [];
       }
+
+      handleDetectedValues(values, performance.now());
     }
 
     if (cameraRunning) detectLoopId = requestAnimationFrame(detectionLoop);
   }
 
-  function enqueueDetectedCode(raw) {
-    const now = Date.now();
+  function handleDetectedValues(values, now) {
+    if (!cameraRunning) return;
 
-    // Purge old cooldown entries.
-    for (const [code, time] of recentCodes.entries()) {
-      if (now - time > 12000) recentCodes.delete(code);
+    // While submitting, ignore every other QR completely.
+    if (mode === 'submitting' || submitInFlight) return;
+
+    // After a submission, the accepted QR must be removed before rearming.
+    if (mode === 'remove') {
+      if (lockedCode && values.includes(lockedCode)) {
+        lockedLastSeenAt = now;
+        els.holdLabel.textContent = 'REMOVE THIS QR';
+        return;
+      }
+
+      if (now - lockedLastSeenAt >= REMOVE_CLEAR_MS) {
+        lockedCode = '';
+        lockedLastSeenAt = 0;
+        resetCandidate();
+        setScannerMode('ready');
+        setLatest('', 'Ready for next person', 'Show the next QR and hold it steady.');
+      }
+      return;
     }
 
-    const lastSeen = recentCodes.get(raw) || 0;
-    if (now - lastSeen < 3200) return;
-    recentCodes.set(raw, now);
+    // We only process one visible QR. If there are multiple, make the user isolate one.
+    if (values.length > 1) {
+      resetCandidate();
+      els.holdLabel.textContent = 'SHOW ONLY ONE QR';
+      els.scanState.textContent = 'TOO MANY CODES';
+      return;
+    }
 
+    const raw = values.length === 1 ? values[0] : '';
+
+    if (!raw) {
+      if (candidateCode && now - candidateLastSeenAt > CANDIDATE_GRACE_MS) {
+        resetCandidate();
+      }
+      return;
+    }
+
+    if (raw !== candidateCode) {
+      candidateCode = raw;
+      candidateStartedAt = now;
+      candidateLastSeenAt = now;
+      setScannerMode('holding', 0);
+      return;
+    }
+
+    candidateLastSeenAt = now;
+    const elapsed = now - candidateStartedAt;
+    const progress = Math.min(100, (elapsed / HOLD_MS) * 100);
+    setScannerMode('holding', progress);
+
+    if (elapsed >= HOLD_MS) {
+      const codeToSubmit = candidateCode;
+      candidateCode = '';
+      candidateStartedAt = 0;
+      candidateLastSeenAt = 0;
+      lockedCode = codeToSubmit;
+      lockedLastSeenAt = now;
+      submitSingleCode(codeToSubmit);
+    }
+  }
+
+  async function submitSingleCode(raw) {
+    if (submitInFlight) return;
+    submitInFlight = true;
+    setScannerMode('submitting');
+
+    // Invalid QR is still a deliberate scan, but it never reaches the backend.
     if (!raw.startsWith('ATTEND:')) {
-      setLatest('bad', 'Not an attendance QR', 'Camera is still running.');
+      setLatest('bad', 'Not an attendance QR', 'Remove this QR before trying another one.');
       showFlash('error', 'Invalid QR', 'Not part of this attendance system');
       toneSequence([{ f: 230, d: 150 }]);
       vibrate([90, 50, 90]);
       addHistory('bad', 'Invalid QR', currentLocalTime(), 'Ignored');
+      submitInFlight = false;
+      lockedLastSeenAt = performance.now();
+      setScannerMode('remove');
       return;
     }
 
-    if (scanQueue.length >= 20) {
-      setLatest('bad', 'Queue is full', 'Hold new cards for a moment while submissions finish.');
-      return;
-    }
+    try {
+      const r = await backendCall({ action: 'scan', q: raw }, 20000);
 
-    scanQueue.push(raw);
-    updateQueueDisplay();
-    processQueue();
-  }
+      if (Number.isFinite(Number(r.todayCount))) {
+        els.todayCount.textContent = String(Number(r.todayCount));
+      }
 
-  async function processQueue() {
-    if (processingQueue || !scanQueue.length) return;
-    processingQueue = true;
+      if (r.status === 'ok') {
+        acceptedCount++;
+        els.acceptedCount.textContent = String(acceptedCount);
+        setLatest('ok', '✓ ' + r.name, 'Recorded at ' + r.time + ' · remove QR');
+        showFlash('ok', '✓ ' + r.name, r.time);
+        addHistory('ok', r.name, r.time, 'Accepted');
+        toneSequence([{ f: 920, d: 110 }]);
+        vibrate(80);
 
-    while (scanQueue.length) {
-      const qrText = scanQueue.shift();
-      updateQueueDisplay();
+      } else if (r.status === 'duplicate') {
+        setLatest('dup', 'Already recorded: ' + r.name, 'Original time ' + r.time + ' · remove QR');
+        showFlash('duplicate', r.name, 'Already recorded · ' + r.time);
+        addHistory('dup', r.name, r.time, 'Duplicate');
+        toneSequence([{ f: 470, d: 90 }, { f: 470, d: 90, gap: 60 }]);
+        vibrate([70, 60, 70]);
 
-      try {
-        const r = await backendCall({ action: 'scan', q: qrText }, 20000);
+      } else if (r.status === 'disabled') {
+        scanningEnabled = false;
+        setStatus('closed', 'SCANNING CLOSED');
+        setLatest('bad', 'Scanning closed', 'No further attendance will be recorded.');
+        showFlash('error', 'Scanning closed', 'Ask the organizer to reopen it');
+        toneSequence([{ f: 220, d: 180 }]);
+        vibrate([120, 70, 120]);
+        submitInFlight = false;
+        await stopCamera();
+        return;
 
-        if (Number.isFinite(Number(r.todayCount))) {
-          els.todayCount.textContent = String(Number(r.todayCount));
-        }
+      } else if (r.status === 'unauthorized') {
+        scanningEnabled = false;
+        setLatest('bad', 'Pairing rejected', 'Open the newest Control!B7 pairing link on this phone.');
+        submitInFlight = false;
+        await stopCamera();
+        return;
 
-        if (r.status === 'ok') {
-          acceptedCount++;
-          els.acceptedCount.textContent = String(acceptedCount);
-          setLatest('ok', '✓ ' + r.name, 'Recorded at ' + r.time);
-          showFlash('ok', '✓ ' + r.name, r.time);
-          addHistory('ok', r.name, r.time, 'Accepted');
-          toneSequence([{ f: 920, d: 95 }]);
-          vibrate(75);
-
-        } else if (r.status === 'duplicate') {
-          setLatest('dup', 'Already recorded: ' + r.name, 'Original time ' + r.time);
-          showFlash('duplicate', r.name, 'Already recorded · ' + r.time);
-          addHistory('dup', r.name, r.time, 'Duplicate');
-          toneSequence([{ f: 470, d: 90 }, { f: 470, d: 90, gap: 60 }]);
-          vibrate([70, 60, 70]);
-
-        } else if (r.status === 'disabled') {
-          scanningEnabled = false;
-          setStatus('closed', 'SCANNING CLOSED');
-          setLatest('bad', 'Scanning closed', 'No further attendance will be recorded.');
-          showFlash('error', 'Scanning closed', 'Ask the organizer to reopen it');
-          toneSequence([{ f: 220, d: 180 }]);
-          vibrate([120, 70, 120]);
-          scanQueue.length = 0;
-          updateQueueDisplay();
-          await stopCamera();
-          break;
-
-        } else if (r.status === 'unauthorized') {
-          scanningEnabled = false;
-          setLatest('bad', 'Pairing rejected', 'Open the newest Control!B7 pairing link on this phone.');
-          scanQueue.length = 0;
-          updateQueueDisplay();
-          await stopCamera();
-          break;
-
-        } else {
-          const msg = r.message || 'QR code was not accepted.';
-          setLatest('bad', 'Not accepted', msg);
-          showFlash('error', 'Not accepted', msg);
-          addHistory('bad', 'Not accepted', currentLocalTime(), msg);
-          toneSequence([{ f: 230, d: 150 }]);
-          vibrate([90, 50, 90]);
-        }
-
-      } catch (err) {
-        setLatest('bad', 'Connection problem', err.message || 'Could not submit attendance.');
-        addHistory('bad', 'Submission failed', currentLocalTime(), 'Network/server error');
+      } else {
+        const msg = r.message || 'QR code was not accepted.';
+        setLatest('bad', 'Not accepted', msg + ' · remove QR');
+        showFlash('error', 'Not accepted', msg);
+        addHistory('bad', 'Not accepted', currentLocalTime(), msg);
         toneSequence([{ f: 230, d: 150 }]);
         vibrate([90, 50, 90]);
       }
+
+    } catch (err) {
+      setLatest('bad', 'Connection problem', (err.message || 'Could not submit attendance.') + ' · remove QR');
+      addHistory('bad', 'Submission failed', currentLocalTime(), 'Network/server error');
+      toneSequence([{ f: 230, d: 150 }]);
+      vibrate([90, 50, 90]);
     }
 
-    processingQueue = false;
-    updateQueueDisplay();
-  }
-
-  function updateQueueDisplay() {
-    const count = scanQueue.length + (processingQueue ? 1 : 0);
-    els.queueState.textContent = 'QUEUE ' + count;
+    submitInFlight = false;
+    lockedLastSeenAt = performance.now();
+    setScannerMode('remove');
   }
 
   function showFlash(type, main, sub) {
@@ -642,8 +771,7 @@
     els.flash.className = 'flash' + (type && type !== 'ok' ? ' ' + type : '');
     els.flash.textContent = '';
 
-    const mainNode = document.createTextNode(main || '');
-    els.flash.appendChild(mainNode);
+    els.flash.appendChild(document.createTextNode(main || ''));
 
     if (sub) {
       const span = document.createElement('span');
@@ -653,7 +781,7 @@
     }
 
     els.flash.classList.add('show');
-    flashTimer = setTimeout(() => els.flash.classList.remove('show'), 1200);
+    flashTimer = setTimeout(() => els.flash.classList.remove('show'), 1300);
   }
 
   function addHistory(type, name, time, label) {
@@ -767,18 +895,16 @@
   els.forgetButton.addEventListener('click', forgetThisPhone);
 
   document.addEventListener('visibilitychange', () => {
-    // Do not silently reopen the camera. If the OS/browser suspended the page,
-    // the user can press Start Camera again if necessary.
     if (!document.hidden && configured()) refreshStatus({ silent: true });
   });
 
   pairFromFragment();
   loadPairing();
   renderHistory();
+  setScannerMode('ready');
 
   if (showConfigurationState()) {
     refreshStatus();
-    // Keep the ON/OFF switch responsive even when nobody scans anything.
     setInterval(() => refreshStatus({ silent: true }), 30000);
   }
 })();
