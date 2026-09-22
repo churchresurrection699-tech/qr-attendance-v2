@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <title>Attendance Scanner V2</title>
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #0d0f12; color: #f6f7f8; font-family: Arial, Helvetica, sans-serif; }
+    body { padding: 14px; }
+    button { font: inherit; }
+
+    .app { width: 100%; max-width: 680px; margin: 0 auto; }
+    .topbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .title { min-width: 0; }
+    h1 { margin: 0; font-size: 25px; line-height: 1.15; }
+    .date { margin-top: 4px; color: #9ca4ad; font-size: 13px; }
+
+    .today-box { flex: 0 0 auto; min-width: 92px; padding: 8px 10px; border: 1px solid #343a42; border-radius: 12px; text-align: center; background: #171a1f; }
+    .today-label { display: block; color: #aeb5bd; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .today-count { display: block; margin-top: 2px; font-size: 25px; font-weight: 900; }
+
+    .status { padding: 10px 12px; margin-bottom: 10px; border-radius: 11px; text-align: center; font-weight: 800; font-size: 14px; }
+    .status.checking { background: #272b31; color: #d1d5da; }
+    .status.open { background: #143923; color: #bff2cf; border: 1px solid #245c39; }
+    .status.closed { background: #461d20; color: #ffd0d4; border: 1px solid #713038; }
+
+    .config-error { display: none; margin-bottom: 10px; padding: 14px; border-radius: 12px; background: #451d20; color: #ffd4d7; border: 1px solid #78353c; line-height: 1.45; }
+
+    .camera-shell {
+      position: relative;
+      width: 100%;
+      height: min(68vh, 650px);
+      min-height: 390px;
+      overflow: hidden;
+      border-radius: 18px;
+      background: #000;
+      border: 1px solid #30343a;
+    }
+
+    #video {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      background: #000;
+    }
+
+    .camera-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      color: #aeb5bd;
+      text-align: center;
+      line-height: 1.45;
+      background: #101216;
+    }
+
+    .guide {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: min(66%, 360px);
+      aspect-ratio: 1 / 1;
+      transform: translate(-50%, -50%);
+      border: 3px solid rgba(255,255,255,.88);
+      border-radius: 22px;
+      box-shadow: 0 0 0 999px rgba(0,0,0,.18);
+      pointer-events: none;
+    }
+
+    .guide::before,
+    .guide::after {
+      content: '';
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      border-color: #fff;
+    }
+    .guide::before { left: -4px; top: -4px; border-left: 7px solid; border-top: 7px solid; border-radius: 18px 0 0 0; }
+    .guide::after { right: -4px; bottom: -4px; border-right: 7px solid; border-bottom: 7px solid; border-radius: 0 0 18px 0; }
+
+    .camera-state {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .pill { padding: 7px 10px; border-radius: 999px; background: rgba(0,0,0,.66); color: #fff; font-size: 12px; font-weight: 800; backdrop-filter: blur(6px); }
+
+    .flash {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) scale(.96);
+      width: calc(100% - 44px);
+      max-width: 500px;
+      padding: 22px 16px;
+      border-radius: 18px;
+      text-align: center;
+      font-weight: 900;
+      font-size: clamp(22px, 6vw, 35px);
+      line-height: 1.2;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .12s ease, transform .12s ease;
+      z-index: 5;
+      background: rgba(20,57,35,.96);
+      color: #d6ffe3;
+      border: 1px solid #4d9a67;
+    }
+    .flash.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .flash.duplicate { background: rgba(80,57,14,.96); color: #fff1c1; border-color: #b58a2f; }
+    .flash.error { background: rgba(76,27,31,.96); color: #ffd9dc; border-color: #9a4950; }
+    .flash .small { display: block; margin-top: 8px; font-size: 15px; font-weight: 700; opacity: .9; }
+
+    .controls { display: grid; grid-template-columns: 1.35fr 1fr; gap: 9px; margin-top: 10px; }
+    .btn { min-height: 52px; border: 0; border-radius: 12px; padding: 11px 14px; cursor: pointer; font-weight: 900; }
+    .btn.primary { background: #f4f5f7; color: #111; }
+    .btn.secondary { background: #272b31; color: #f1f3f5; border: 1px solid #363c44; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .mini-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .mini { min-height: 42px; padding: 8px; border-radius: 10px; border: 1px solid #343a42; background: #171a1f; color: #d9dde1; font-size: 12px; font-weight: 800; cursor: pointer; }
+
+    .latest { margin-top: 11px; padding: 14px; border-radius: 14px; background: #171a1f; border: 1px solid #30353b; text-align: center; }
+    .latest .main { font-size: 20px; font-weight: 900; }
+    .latest .sub { margin-top: 5px; color: #aeb5bd; font-size: 13px; }
+    .latest.ok .main { color: #bff2cf; }
+    .latest.dup .main { color: #ffdfa0; }
+    .latest.bad .main { color: #ffb8bd; }
+
+    .session { margin-top: 14px; }
+    .session-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .session-title { font-size: 15px; font-weight: 900; }
+    .session-count { color: #9da5ae; font-size: 13px; }
+    .history { overflow: hidden; border: 1px solid #30353b; border-radius: 14px; background: #14171b; }
+    .empty { padding: 18px; color: #8f979f; text-align: center; font-size: 13px; }
+    .history-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 11px 12px; border-top: 1px solid #292e34; }
+    .history-row:first-child { border-top: 0; }
+    .history-icon { font-size: 16px; text-align: center; }
+    .history-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 800; }
+    .history-meta { color: #9da5ae; font-size: 12px; text-align: right; }
+    .history-row.ok .history-icon { color: #8ee1a8; }
+    .history-row.dup .history-icon { color: #ffd47d; }
+    .history-row.bad .history-icon { color: #ff969f; }
+
+    .privacy { margin: 14px 2px 6px; color: #7f8790; font-size: 11px; line-height: 1.45; text-align: center; }
+
+    @media (max-width: 420px) {
+      body { padding: 9px; }
+      h1 { font-size: 22px; }
+      .today-box { min-width: 78px; }
+      .camera-shell { height: min(66vh, 590px); min-height: 360px; border-radius: 14px; }
+      .controls { grid-template-columns: 1fr 1fr; }
+      .mini-controls { grid-template-columns: 1fr 1fr; }
+      .mini-controls .mini:last-child { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="title">
+      <h1>Attendance Scanner</h1>
+      <div id="dateText" class="date">Waiting for server…</div>
+    </div>
+    <div class="today-box">
+      <span class="today-label">Today</span>
+      <span id="todayCount" class="today-count">0</span>
+    </div>
+  </div>
+
+  <div id="configError" class="config-error"></div>
+  <div id="status" class="status checking">Checking scanner status…</div>
+
+  <div class="camera-shell">
+    <video id="video" playsinline autoplay muted></video>
+    <div id="placeholder" class="camera-placeholder">Tap <b>Start Camera</b> once. Keep the camera open and move each QR card into the square.</div>
+    <div class="guide" aria-hidden="true"></div>
+    <div id="flash" class="flash"></div>
+    <div class="camera-state">
+      <div id="cameraState" class="pill">CAMERA OFF</div>
+      <div id="queueState" class="pill">QUEUE 0</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="startButton" class="btn primary" type="button">Start Camera</button>
+    <button id="stopButton" class="btn secondary" type="button" disabled>Stop Camera</button>
+  </div>
+
+  <div class="mini-controls">
+    <button id="refreshButton" class="mini" type="button">Refresh Status</button>
+    <button id="clearHistoryButton" class="mini" type="button">Clear Session</button>
+    <button id="forgetButton" class="mini" type="button">Forget This Phone</button>
+  </div>
+
+  <div id="latest" class="latest">
+    <div class="main">Ready</div>
+    <div class="sub">Start the camera to begin scanning.</div>
+  </div>
+
+  <section class="session">
+    <div class="session-head">
+      <div class="session-title">This phone's session</div>
+      <div class="session-count"><span id="acceptedCount">0</span> accepted</div>
+    </div>
+    <div id="history" class="history">
+      <div class="empty">No scans on this phone yet.</div>
+    </div>
+  </section>
+
+  <div class="privacy">Names shown below exist only in this page's current session and in your Google Sheet. Refreshing the page clears the on-screen session history.</div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORAGE_BACKEND = 'qrAttendanceV2Backend';
+  const STORAGE_KEY = 'qrAttendanceV2Key';
+
+  const els = {
+    status: document.getElementById('status'),
+    configError: document.getElementById('configError'),
+    dateText: document.getElementById('dateText'),
+    todayCount: document.getElementById('todayCount'),
+    video: document.getElementById('video'),
+    placeholder: document.getElementById('placeholder'),
+    flash: document.getElementById('flash'),
+    cameraState: document.getElementById('cameraState'),
+    queueState: document.getElementById('queueState'),
+    startButton: document.getElementById('startButton'),
+    stopButton: document.getElementById('stopButton'),
+    refreshButton: document.getElementById('refreshButton'),
+    clearHistoryButton: document.getElementById('clearHistoryButton'),
+    forgetButton: document.getElementById('forgetButton'),
+    latest: document.getElementById('latest'),
+    acceptedCount: document.getElementById('acceptedCount'),
+    history: document.getElementById('history')
+  };
+
+  let backendUrl = '';
+  let accessKey = '';
+  let scanningEnabled = false;
+  let stream = null;
+  let detector = null;
+  let cameraRunning = false;
+  let detectLoopId = 0;
+  let lastDetectTick = 0;
+  let processingQueue = false;
+  let acceptedCount = 0;
+  let audioContext = null;
+  let flashTimer = 0;
+
+  const scanQueue = [];
+  const recentCodes = new Map();
+  const sessionHistory = [];
+
+  function pairFromFragment() {
+    const fragment = location.hash.startsWith('#') ? location.hash.slice(1) : '';
+    if (!fragment) return;
+
+    const p = new URLSearchParams(fragment);
+    const b = p.get('backend') || '';
+    const k = p.get('key') || '';
+
+    if (validBackendUrl(b) && validKey(k)) {
+      try {
+        localStorage.setItem(STORAGE_BACKEND, b);
+        localStorage.setItem(STORAGE_KEY, k);
+      } catch (_) {}
+
+      // Replace the current history entry so the secret fragment disappears
+      // from the visible address bar and normal browser history entry.
+      history.replaceState({}, document.title, location.pathname + location.search);
+    }
+  }
+
+  function loadPairing() {
+    try {
+      backendUrl = localStorage.getItem(STORAGE_BACKEND) || '';
+      accessKey = localStorage.getItem(STORAGE_KEY) || '';
+    } catch (_) {
+      backendUrl = '';
+      accessKey = '';
+    }
+  }
+
+  function validBackendUrl(v) {
+    return /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/i.test(String(v || '').trim());
+  }
+
+  function validKey(v) {
+    return /^[a-f0-9]{32,128}$/i.test(String(v || '').trim());
+  }
+
+  function configured() {
+    return validBackendUrl(backendUrl) && validKey(accessKey);
+  }
+
+  function showConfigurationState() {
+    if (configured()) {
+      els.configError.style.display = 'none';
+      return true;
+    }
+
+    els.configError.style.display = 'block';
+    els.configError.innerHTML = '<b>This phone is not paired.</b><br>Open the PRIVATE pairing link from <b>Control!B7</b> once on this phone.';
+    setStatus('closed', 'PHONE NOT PAIRED');
+    els.startButton.disabled = true;
+    return false;
+  }
+
+  function backendCall(params, timeoutMs = 18000) {
+    return new Promise((resolve, reject) => {
+      if (!configured()) {
+        reject(new Error('This phone is not paired.'));
+        return;
+      }
+
+      const callbackName = '__qrV2_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+      const script = document.createElement('script');
+      let finished = false;
+
+      const cleanup = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        if (script.parentNode) script.parentNode.removeChild(script);
+        try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
+      };
+
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error('The attendance server did not respond in time.'));
+      }, timeoutMs);
+
+      window[callbackName] = data => {
+        cleanup();
+        resolve(data || {});
+      };
+
+      const url = new URL(backendUrl);
+      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+      url.searchParams.set('key', accessKey);
+      url.searchParams.set('callback', callbackName);
+      url.searchParams.set('_', String(Date.now()));
+
+      script.src = url.toString();
+      script.async = true;
+      script.onerror = () => {
+        cleanup();
+        reject(new Error('Could not reach the Google Apps Script backend.'));
+      };
+
+      document.head.appendChild(script);
+    });
+  }
+
+  async function refreshStatus(options = {}) {
+    const silent = !!options.silent;
+    if (!configured()) return;
+
+    if (!silent) setStatus('checking', 'Checking scanner status…');
+
+    try {
+      const r = await backendCall({ action: 'status' });
+
+      if (r.status === 'unauthorized') {
+        scanningEnabled = false;
+        setStatus('closed', 'PAIRING KEY REJECTED');
+        setLatest('bad', 'Pairing rejected', 'The scanner key was changed. Open the newest Control!B7 pairing link.');
+        if (cameraRunning) await stopCamera();
+        return;
+      }
+
+      scanningEnabled = !!r.enabled;
+      els.dateText.textContent = r.date ? 'Date: ' + r.date : 'Connected';
+      if (Number.isFinite(Number(r.todayCount))) els.todayCount.textContent = String(Number(r.todayCount));
+
+      if (scanningEnabled) {
+        setStatus('open', 'SCANNING OPEN');
+        els.startButton.disabled = cameraRunning;
+      } else {
+        setStatus('closed', 'SCANNING CLOSED');
+        els.startButton.disabled = true;
+        if (cameraRunning) await stopCamera();
+      }
+    } catch (err) {
+      setStatus('closed', 'BACKEND UNAVAILABLE');
+      if (!silent) setLatest('bad', 'Connection problem', err.message || 'Could not reach attendance server.');
+    }
+  }
+
+  function setStatus(type, text) {
+    els.status.className = 'status ' + type;
+    els.status.textContent = text;
+  }
+
+  function setLatest(type, main, sub) {
+    els.latest.className = 'latest' + (type ? ' ' + type : '');
+    els.latest.innerHTML = '<div class="main"></div><div class="sub"></div>';
+    els.latest.querySelector('.main').textContent = main;
+    els.latest.querySelector('.sub').textContent = sub || '';
+  }
+
+  async function startCamera() {
+    if (cameraRunning || !configured()) return;
+
+    if (!scanningEnabled) {
+      await refreshStatus();
+      if (!scanningEnabled) return;
+    }
+
+    if (!('mediaDevices' in navigator) || !navigator.mediaDevices.getUserMedia) {
+      setLatest('bad', 'Camera API unavailable', 'Open this HTTPS page in a modern Android browser.');
+      return;
+    }
+
+    if (!('BarcodeDetector' in window)) {
+      setLatest('bad', 'This browser cannot scan continuously', 'Use Chrome or Samsung Internet on Android for Version 2.');
+      showFlash('error', 'Unsupported browser', 'Use Chrome or Samsung Internet');
+      return;
+    }
+
+    try {
+      // Audio must be unlocked by a user gesture before automatic beeps can play.
+      if (!audioContext) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) audioContext = new AudioCtx();
+      }
+      if (audioContext && audioContext.state === 'suspended') {
+        try { await audioContext.resume(); } catch (_) {}
+      }
+
+      setLatest('', 'Opening camera…', 'Allow camera access when the browser asks.');
+
+      detector = new BarcodeDetector({ formats: ['qr_code'] });
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      });
+
+      els.video.srcObject = stream;
+      await els.video.play();
+
+      cameraRunning = true;
+      els.placeholder.style.display = 'none';
+      els.cameraState.textContent = 'CAMERA LIVE';
+      els.startButton.disabled = true;
+      els.stopButton.disabled = false;
+      setLatest('', 'Camera ready', 'Keep scanning. You do not need to press anything between people.');
+
+      lastDetectTick = 0;
+      detectLoopId = requestAnimationFrame(detectionLoop);
+
+    } catch (err) {
+      cameraRunning = false;
+      stream = null;
+      detector = null;
+      els.cameraState.textContent = 'CAMERA OFF';
+      els.startButton.disabled = !scanningEnabled;
+      els.stopButton.disabled = true;
+
+      const text = String(err && err.message ? err.message : err || 'Unknown camera error');
+      if (/permission|denied|notallowed/i.test(text)) {
+        setLatest('bad', 'Camera permission denied', 'In Chrome: site settings → Camera → Allow, then reload this page.');
+      } else {
+        setLatest('bad', 'Could not start camera', text);
+      }
+    }
+  }
+
+  async function stopCamera() {
+    if (detectLoopId) cancelAnimationFrame(detectLoopId);
+    detectLoopId = 0;
+
+    if (stream) {
+      stream.getTracks().forEach(track => {
+        try { track.stop(); } catch (_) {}
+      });
+    }
+
+    stream = null;
+    detector = null;
+    cameraRunning = false;
+    els.video.srcObject = null;
+    els.placeholder.style.display = 'flex';
+    els.cameraState.textContent = 'CAMERA OFF';
+    els.startButton.disabled = !scanningEnabled;
+    els.stopButton.disabled = true;
+  }
+
+  async function detectionLoop(ts) {
+    if (!cameraRunning || !detector) return;
+
+    // About 7–8 decode attempts per second. Plenty for QR cards while keeping
+    // CPU/battery reasonable.
+    if (ts - lastDetectTick >= 130 && els.video.readyState >= 2) {
+      lastDetectTick = ts;
+      try {
+        const found = await detector.detect(els.video);
+        if (found && found.length) {
+          for (const item of found) {
+            const value = String(item.rawValue || '').trim();
+            if (value) enqueueDetectedCode(value);
+          }
+        }
+      } catch (_) {
+        // Decode failures are normal between QR codes; keep the camera running.
+      }
+    }
+
+    if (cameraRunning) detectLoopId = requestAnimationFrame(detectionLoop);
+  }
+
+  function enqueueDetectedCode(raw) {
+    const now = Date.now();
+
+    // Purge old cooldown entries.
+    for (const [code, time] of recentCodes.entries()) {
+      if (now - time > 12000) recentCodes.delete(code);
+    }
+
+    const lastSeen = recentCodes.get(raw) || 0;
+    if (now - lastSeen < 3200) return;
+    recentCodes.set(raw, now);
+
+    if (!raw.startsWith('ATTEND:')) {
+      setLatest('bad', 'Not an attendance QR', 'Camera is still running.');
+      showFlash('error', 'Invalid QR', 'Not part of this attendance system');
+      toneSequence([{ f: 230, d: 150 }]);
+      vibrate([90, 50, 90]);
+      addHistory('bad', 'Invalid QR', currentLocalTime(), 'Ignored');
+      return;
+    }
+
+    if (scanQueue.length >= 20) {
+      setLatest('bad', 'Queue is full', 'Hold new cards for a moment while submissions finish.');
+      return;
+    }
+
+    scanQueue.push(raw);
+    updateQueueDisplay();
+    processQueue();
+  }
+
+  async function processQueue() {
+    if (processingQueue || !scanQueue.length) return;
+    processingQueue = true;
+
+    while (scanQueue.length) {
+      const qrText = scanQueue.shift();
+      updateQueueDisplay();
+
+      try {
+        const r = await backendCall({ action: 'scan', q: qrText }, 20000);
+
+        if (Number.isFinite(Number(r.todayCount))) {
+          els.todayCount.textContent = String(Number(r.todayCount));
+        }
+
+        if (r.status === 'ok') {
+          acceptedCount++;
+          els.acceptedCount.textContent = String(acceptedCount);
+          setLatest('ok', '✓ ' + r.name, 'Recorded at ' + r.time);
+          showFlash('ok', '✓ ' + r.name, r.time);
+          addHistory('ok', r.name, r.time, 'Accepted');
+          toneSequence([{ f: 920, d: 95 }]);
+          vibrate(75);
+
+        } else if (r.status === 'duplicate') {
+          setLatest('dup', 'Already recorded: ' + r.name, 'Original time ' + r.time);
+          showFlash('duplicate', r.name, 'Already recorded · ' + r.time);
+          addHistory('dup', r.name, r.time, 'Duplicate');
+          toneSequence([{ f: 470, d: 90 }, { f: 470, d: 90, gap: 60 }]);
+          vibrate([70, 60, 70]);
+
+        } else if (r.status === 'disabled') {
+          scanningEnabled = false;
+          setStatus('closed', 'SCANNING CLOSED');
+          setLatest('bad', 'Scanning closed', 'No further attendance will be recorded.');
+          showFlash('error', 'Scanning closed', 'Ask the organizer to reopen it');
+          toneSequence([{ f: 220, d: 180 }]);
+          vibrate([120, 70, 120]);
+          scanQueue.length = 0;
+          updateQueueDisplay();
+          await stopCamera();
+          break;
+
+        } else if (r.status === 'unauthorized') {
+          scanningEnabled = false;
+          setLatest('bad', 'Pairing rejected', 'Open the newest Control!B7 pairing link on this phone.');
+          scanQueue.length = 0;
+          updateQueueDisplay();
+          await stopCamera();
+          break;
+
+        } else {
+          const msg = r.message || 'QR code was not accepted.';
+          setLatest('bad', 'Not accepted', msg);
+          showFlash('error', 'Not accepted', msg);
+          addHistory('bad', 'Not accepted', currentLocalTime(), msg);
+          toneSequence([{ f: 230, d: 150 }]);
+          vibrate([90, 50, 90]);
+        }
+
+      } catch (err) {
+        setLatest('bad', 'Connection problem', err.message || 'Could not submit attendance.');
+        addHistory('bad', 'Submission failed', currentLocalTime(), 'Network/server error');
+        toneSequence([{ f: 230, d: 150 }]);
+        vibrate([90, 50, 90]);
+      }
+    }
+
+    processingQueue = false;
+    updateQueueDisplay();
+  }
+
+  function updateQueueDisplay() {
+    const count = scanQueue.length + (processingQueue ? 1 : 0);
+    els.queueState.textContent = 'QUEUE ' + count;
+  }
+
+  function showFlash(type, main, sub) {
+    clearTimeout(flashTimer);
+    els.flash.className = 'flash' + (type && type !== 'ok' ? ' ' + type : '');
+    els.flash.textContent = '';
+
+    const mainNode = document.createTextNode(main || '');
+    els.flash.appendChild(mainNode);
+
+    if (sub) {
+      const span = document.createElement('span');
+      span.className = 'small';
+      span.textContent = sub;
+      els.flash.appendChild(span);
+    }
+
+    els.flash.classList.add('show');
+    flashTimer = setTimeout(() => els.flash.classList.remove('show'), 1200);
+  }
+
+  function addHistory(type, name, time, label) {
+    sessionHistory.unshift({ type, name, time, label });
+    if (sessionHistory.length > 40) sessionHistory.length = 40;
+    renderHistory();
+  }
+
+  function renderHistory() {
+    els.history.textContent = '';
+
+    if (!sessionHistory.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'No scans on this phone yet.';
+      els.history.appendChild(empty);
+      return;
+    }
+
+    sessionHistory.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'history-row ' + item.type;
+
+      const icon = document.createElement('div');
+      icon.className = 'history-icon';
+      icon.textContent = item.type === 'ok' ? '✓' : (item.type === 'dup' ? '↺' : '!');
+
+      const name = document.createElement('div');
+      name.className = 'history-name';
+      name.textContent = item.name;
+
+      const meta = document.createElement('div');
+      meta.className = 'history-meta';
+      meta.textContent = item.time + '\n' + item.label;
+      meta.style.whiteSpace = 'pre-line';
+
+      row.append(icon, name, meta);
+      els.history.appendChild(row);
+    });
+  }
+
+  function clearSession() {
+    sessionHistory.length = 0;
+    acceptedCount = 0;
+    els.acceptedCount.textContent = '0';
+    renderHistory();
+    setLatest('', 'Session cleared', 'Attendance already saved in Google Sheets is not changed.');
+  }
+
+  async function forgetThisPhone() {
+    const yes = confirm('Forget this phone pairing? You will need to open the private Control!B7 pairing link again.');
+    if (!yes) return;
+
+    await stopCamera();
+    try {
+      localStorage.removeItem(STORAGE_BACKEND);
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (_) {}
+
+    backendUrl = '';
+    accessKey = '';
+    scanningEnabled = false;
+    location.reload();
+  }
+
+  function currentLocalTime() {
+    try {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function vibrate(pattern) {
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (_) {}
+  }
+
+  async function tone(frequency, duration, delay = 0) {
+    if (!audioContext) return;
+    if (audioContext.state === 'suspended') {
+      try { await audioContext.resume(); } catch (_) {}
+    }
+
+    const startAt = audioContext.currentTime + delay / 1000;
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(frequency, startAt);
+    gain.gain.setValueAtTime(0.0001, startAt);
+    gain.gain.exponentialRampToValueAtTime(0.08, startAt + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration / 1000);
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+    osc.start(startAt);
+    osc.stop(startAt + duration / 1000 + 0.03);
+  }
+
+  function toneSequence(parts) {
+    let elapsed = 0;
+    parts.forEach(part => {
+      elapsed += Number(part.gap || 0);
+      tone(Number(part.f || 440), Number(part.d || 90), elapsed);
+      elapsed += Number(part.d || 90);
+    });
+  }
+
+  els.startButton.addEventListener('click', startCamera);
+  els.stopButton.addEventListener('click', stopCamera);
+  els.refreshButton.addEventListener('click', () => refreshStatus());
+  els.clearHistoryButton.addEventListener('click', clearSession);
+  els.forgetButton.addEventListener('click', forgetThisPhone);
+
+  document.addEventListener('visibilitychange', () => {
+    // Do not silently reopen the camera. If the OS/browser suspended the page,
+    // the user can press Start Camera again if necessary.
+    if (!document.hidden && configured()) refreshStatus({ silent: true });
+  });
+
+  pairFromFragment();
+  loadPairing();
+  renderHistory();
+
+  if (showConfigurationState()) {
+    refreshStatus();
+    // Keep the ON/OFF switch responsive even when nobody scans anything.
+    setInterval(() => refreshStatus({ silent: true }), 30000);
+  }
+})();
+</script>
+</body>
+</html>
