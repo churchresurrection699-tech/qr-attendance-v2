@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
-  <title>Attendance Scanner V2.2</title>
+  <title>Attendance Scanner V2.3</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; background: #0d0f12; color: #f6f7f8; font-family: Arial, Helvetica, sans-serif; }
@@ -60,7 +60,7 @@
     .crosshair::before { width: 24px; height: 2px; left: 0; top: 11px; }
     .crosshair::after { width: 2px; height: 24px; left: 11px; top: 0; }
 
-    .camera-message { position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); width: min(88%, 500px); padding: 9px 12px; border-radius: 999px; background: rgba(0,0,0,.72); backdrop-filter: blur(6px); text-align: center; pointer-events: none; font-size: 13px; font-weight: 900; letter-spacing: .02em; }
+    .camera-message { display: none !important; }
     .camera-state { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
     .pill { padding: 7px 10px; border-radius: 999px; background: rgba(0,0,0,.68); color: #fff; font-size: 12px; font-weight: 800; backdrop-filter: blur(6px); }
     .capture-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: #80e79e; vertical-align: 1px; }
@@ -121,12 +121,12 @@
 
   <div class="camera-shell">
     <video id="video" playsinline autoplay muted></video>
-    <div id="placeholder" class="camera-placeholder">Tap <b>Start Camera</b>. Only the QR positioned inside the square is scanned.</div>
+    <div id="placeholder" class="camera-placeholder">Tap <b>Start Camera</b>.</div>
     <div id="guide" class="guide" aria-hidden="true"><div class="crosshair"></div></div>
-    <div id="cameraMessage" class="camera-message">PUT ONE QR INSIDE THE SQUARE</div>
+    <div id="cameraMessage" class="camera-message" aria-hidden="true"></div>
     <div class="camera-state">
       <div id="cameraState" class="pill">CAMERA OFF</div>
-      <div id="scanState" class="pill">CENTER-ONLY SCAN</div>
+      <div id="scanState" class="pill">READY</div>
     </div>
   </div>
 
@@ -151,7 +151,7 @@
     </div>
   </section>
 
-  <div class="privacy">The camera only analyzes the square in the middle. A successful local scan gives an immediate green flash/beep, while Google Sheets confirmation happens in the background. Names appear only in the list below after the server responds.</div>
+  <div class="privacy">Only the pixels inside the bordered scan box are analyzed. Results appear in the list below while submissions finish in the background.</div>
 </div>
 
 <canvas id="roiCanvas" width="720" height="720" hidden></canvas>
@@ -170,7 +170,6 @@
   const SAME_CODE_REARM_MS = 420;
   const RECENT_CODE_COOLDOWN_MS = 4500;
   const ROI_SIZE = 720;
-  const CENTER_LIMIT = 0.38; // Candidate center must be reasonably close to ROI center.
 
   const els = {
     status: document.getElementById('status'),
@@ -347,12 +346,12 @@
 
   function pulseCaptured() {
     clearTimeout(capturePulseTimer);
-    setAimState('captured', 'SCANNED — SHOW NEXT QR');
+    setAimState('captured', '');
     els.scanState.innerHTML = '<span class="capture-dot"></span>SCANNED';
     capturePulseTimer = setTimeout(() => {
       if (!cameraRunning) return;
-      setAimState('idle', 'PUT NEXT QR INSIDE THE SQUARE');
-      els.scanState.textContent = 'CENTER-ONLY SCAN';
+      setAimState('idle', '');
+      els.scanState.textContent = 'READY';
     }, 520);
   }
 
@@ -395,8 +394,8 @@
       candidateCode = '';
       lastCapturedCode = '';
       recentCodes.clear();
-      setAimState('idle', 'PUT ONE QR INSIDE THE SQUARE');
-      els.scanState.textContent = 'CENTER-ONLY SCAN';
+      setAimState('idle', '');
+      els.scanState.textContent = 'READY';
       lastDetectTick = 0;
       detectLoopId = requestAnimationFrame(detectionLoop);
     } catch (err) {
@@ -426,8 +425,8 @@
     els.cameraState.textContent = 'CAMERA OFF';
     els.startButton.disabled = !scanningEnabled;
     els.stopButton.disabled = true;
-    setAimState('idle', 'PUT ONE QR INSIDE THE SQUARE');
-    els.scanState.textContent = 'CENTER-ONLY SCAN';
+    setAimState('idle', '');
+    els.scanState.textContent = 'READY';
   }
 
   function drawGuideRegionToCanvas() {
@@ -479,22 +478,25 @@
     if (cameraRunning) detectLoopId = requestAnimationFrame(detectionLoop);
   }
 
-  function chooseCenteredDetection(found) {
+  function chooseDetectionInsideBox(found) {
+    // BarcodeDetector only sees roiCanvas, which contains ONLY the pixels
+    // inside the visible square. QR codes outside the square never reach
+    // this function at all. If more than one QR is somehow inside the box,
+    // prefer the largest one, then the one closest to the middle.
     const usable = found
       .map(item => {
         const raw = String(item.rawValue || '').trim();
         const b = item.boundingBox;
         if (!raw || !b || !b.width || !b.height) return null;
+        const area = (b.width * b.height) / (ROI_SIZE * ROI_SIZE);
+        if (area < 0.008) return null;
         const cx = (b.x + b.width / 2) / ROI_SIZE;
         const cy = (b.y + b.height / 2) / ROI_SIZE;
-        const dx = Math.abs(cx - 0.5);
-        const dy = Math.abs(cy - 0.5);
-        const area = (b.width * b.height) / (ROI_SIZE * ROI_SIZE);
-        if (dx > CENTER_LIMIT || dy > CENTER_LIMIT || area < 0.008) return null;
-        return { raw, score: Math.hypot(dx, dy), area };
+        const centerDistance = Math.hypot(cx - 0.5, cy - 0.5);
+        return { raw, area, centerDistance };
       })
       .filter(Boolean)
-      .sort((a, b) => (a.score - b.score) || (b.area - a.area));
+      .sort((a, b) => (b.area - a.area) || (a.centerDistance - b.centerDistance));
 
     return usable.length ? usable[0].raw : '';
   }
@@ -502,7 +504,7 @@
   function handleDetections(found, now) {
     if (!cameraRunning) return;
 
-    const raw = chooseCenteredDetection(found);
+    const raw = chooseDetectionInsideBox(found);
 
     // Same QR can remain in the square after capture. Do not capture it again until it leaves.
     if (lastCapturedCode) {
@@ -521,7 +523,7 @@
       if (candidateCode && now - candidateLastSeenAt > CANDIDATE_GRACE_MS) {
         candidateCode = '';
         candidateStartedAt = 0;
-        setAimState('idle', 'PUT ONE QR INSIDE THE SQUARE');
+        setAimState('idle', '');
       }
       return;
     }
@@ -530,7 +532,7 @@
       candidateCode = raw;
       candidateStartedAt = now;
       candidateLastSeenAt = now;
-      setAimState('aiming', 'HOLD IN THE CENTER…');
+      setAimState('aiming', '');
       return;
     }
 
@@ -721,7 +723,7 @@
   pairFromFragment();
   loadPairing();
   renderHistory();
-  setAimState('idle', 'PUT ONE QR INSIDE THE SQUARE');
+  setAimState('idle', '');
 
   if (showConfigurationState()) {
     refreshStatus();
